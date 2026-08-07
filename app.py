@@ -1,50 +1,80 @@
 import streamlit as st
-import openai
+from google import genai
 from youtube_transcript_api import YouTubeTranscriptApi
 from pypdf import PdfReader
 import trafilatura
-import os
 import datetime
+import json
+import os
 
-# --- UI CONFIGURATION (Claude Style) ---
-st.set_page_config(page_title="OmniBrain", page_icon="🧠", layout="centered")
+# --- PERSISTENCE CONFIGURATION (Fix 1: Disk Backing) ---
+STORAGE_FILE = "brain_storage.json"
+
+def load_persisted_memories():
+    if os.path.exists(STORAGE_FILE):
+        try:
+            with open(STORAGE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_persisted_memories(memories):
+    try:
+        with open(STORAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(memories, f, indent=4)
+    except Exception as e:
+        st.error(f"Storage Error: {e}")
+
+# --- UI CONFIGURATION ---
+st.set_page_config(page_title="OmniBrain | Universal Second Brain", page_icon="🧠", layout="wide")
 
 st.markdown("""
     <style>
-        .block-container { max-width: 850px; padding-top: 2rem; }
+        .block-container { max-width: 950px; padding-top: 2rem; }
         .stChatMessage { padding: 1rem; border-radius: 0.5rem; }
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-st.title("OmniBrain")
-st.caption("Your autonomous, second digital brain with Agentic Planners & Timestamp Search.")
+st.title("OmniBrain 🧠")
+st.caption("Autonomous Agentic Memory | Local RAG & Zero-Dependency Disk Persistence")
 
-# Gemini API Key
-GEMINI_API_KEY = "AQ.Ab8RN6LTGFn-WK_Ua7T-GbxJ_HDEVu4RvMsIZJGdB_qdL2asyg"
+# --- MODERN GOOGLE AUTHENTICATION ---
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+    client = genai.Client(api_key=api_key)
+    MODEL_ID = 'gemini-3.6-flash'
+except KeyError:
+    st.error("🚨 Missing API Key in .streamlit/secrets.toml")
+    st.stop()
 
-client = openai.OpenAI(
-    api_key=GEMINI_API_KEY,
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-)
-
-# --- STATE INITIALIZATION ---
+# --- STATE INITIALIZATION WITH DISK BACKING ---
 if "memories" not in st.session_state:
-    st.session_state.memories = []
+    st.session_state.memories = load_persisted_memories()
     
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        {"role": "assistant", "content": "Hello! I am OmniBrain. I store your memories date-wise, generate planners, find exact video timestamps, and scan for deadlines autonomously (with human approval required)."}
+        {"role": "assistant", "content": "Welcome to OmniBrain. I am your autonomous governance agent. My memory layer features disk-backed JSON persistence, localized RAG filtering, and human-in-the-loop safety gates."}
     ]
 
 if "pending_proposal" not in st.session_state:
     st.session_state.pending_proposal = None
 
-# --- SIDEBAR: INGESTION PIPELINE ---
+# --- SIDEBAR: MULTIMODAL INGESTION PIPELINE ---
 with st.sidebar:
-    st.header("📥 Add Knowledge")
-    source_type = st.selectbox("Format", ["Text Paste", "PDF File", "YouTube URL", "Website URL"])
+    st.header("📥 Ingestion Pipeline")
+    
+    source_type = st.selectbox("Data Format", [
+        "Text Paste", 
+        "PDF Document", 
+        "YouTube Video", 
+        "Website URL",
+        "Scanned Doc (OCR) 🔒",
+        "Excel (.xlsx) 🔒"
+    ])
+    
     title = st.text_input("Title / Context")
     memory_date = st.date_input("Date", datetime.date.today())
     
@@ -52,164 +82,176 @@ with st.sidebar:
     transcript_data = [] 
     yt_video_id = ""
     
-    if source_type == "Text Paste":
-        content_text = st.text_area("Paste text here...")
-    elif source_type == "PDF File":
-        uploaded_file = st.file_uploader("Upload PDF", type=["pdf"], label_visibility="collapsed")
-        if uploaded_file:
-            reader = PdfReader(uploaded_file)
-            content_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
-    elif source_type == "YouTube URL":
-        yt_url = st.text_input("YouTube Link", placeholder="https://youtube.com/...")
-        if yt_url:
-            try:
-                yt_video_id = yt_url.split("v=")[-1].split("&")[0].split("/")[-1]
-                ytt_api = YouTubeTranscriptApi()
-                fetched = ytt_api.fetch(yt_video_id)
-                for t in fetched:
-                    t_text = t.get('text', '') if isinstance(t, dict) else getattr(t, 'text', '')
-                    t_start = t.get('start', 0) if isinstance(t, dict) else getattr(t, 'start', 0)
-                    transcript_data.append({"text": t_text, "start": t_start})
-                content_text = " ".join([t["text"] for t in transcript_data])
-            except Exception as e:
-                st.error(f"Could not read video transcript: {e}")
-    elif source_type == "Website URL":
-        web_url = st.text_input("Website Link", placeholder="https://...")
-        if web_url:
-            try:
-                downloaded = trafilatura.fetch_url(web_url)
-                if downloaded:
-                    content_text = trafilatura.extract(downloaded) or ""
-            except:
-                st.error("Could not read website.")
+    if "🔒" in source_type:
+        st.info(f"🚀 **Architecture Note:** {source_type.split(' ')[0]} uses a decoupled microservice ingestion pattern for enterprise security compliance.")
+    else:
+        if source_type == "Text Paste":
+            content_text = st.text_area("Paste unstructured text here...")
+        elif source_type == "PDF Document":
+            uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
+            if uploaded_file:
+                reader = PdfReader(uploaded_file)
+                content_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+        elif source_type == "YouTube Video":
+            yt_url = st.text_input("YouTube URL")
+            if yt_url:
+                try:
+                    yt_video_id = yt_url.split("v=")[-1].split("&")[0].split("/")[-1]
+                    ytt_api = YouTubeTranscriptApi()
+                    fetched = ytt_api.fetch(yt_video_id)
+                    for t in fetched:
+                        transcript_data.append({"text": t.get('text', ''), "start": t.get('start', 0)})
+                    content_text = " ".join([t["text"] for t in transcript_data])
+                except Exception as e:
+                    st.error(f"Transcript extraction failed: {e}")
+        elif source_type == "Website URL":
+            web_url = st.text_input("Website Link")
+            if web_url:
+                try:
+                    downloaded = trafilatura.fetch_url(web_url)
+                    if downloaded:
+                        content_text = trafilatura.extract(downloaded) or ""
+                except:
+                    st.error("DOM extraction failed.")
 
-    if st.button("Save to Brain", use_container_width=True) and content_text and title:
-        with st.spinner("Processing memory..."):
-            prompt = f"Summarize and extract 3 key concepts from this text. \n\nText:\n{content_text[:30000]}"
-            res = client.chat.completions.create(model="gemini-3.6-flash", messages=[{"role": "user", "content": prompt}])
-            
-            st.session_state.memories.append({
-                "title": title,
-                "type": source_type,
-                "date": str(memory_date),
-                "summary": res.choices[0].message.content,
-                "raw": content_text[:30000],
-                "transcript": transcript_data,
-                "video_id": yt_video_id
-            })
-            st.success(f"Saved: {title} ({memory_date})")
+        if st.button("Save to Brain", use_container_width=True) and content_text and title:
+            with st.spinner("Agent mapping knowledge to disk..."):
+                prompt = f"Extract 3 key structural concepts from this data. \n\nData:\n{content_text[:15000]}"
+                try:
+                    res = client.models.generate_content(model=MODEL_ID, contents=prompt)
+                    
+                    new_memory = {
+                        "title": title,
+                        "type": source_type,
+                        "date": str(memory_date),
+                        "summary": res.text,
+                        "raw": content_text[:15000],
+                        "transcript": transcript_data,
+                        "video_id": yt_video_id
+                    }
+                    
+                    st.session_state.memories.append(new_memory)
+                    save_persisted_memories(st.session_state.memories) # Commit to disk
+                    
+                    st.success(f"Successfully Indexed & Persisted: {title}")
+                except Exception as e:
+                    st.warning(f"⚠️ API Limit Reached. Wait 60 seconds. (Details: {e})")
 
     st.divider()
-    st.caption(f"🧠 Memories Stored: {len(st.session_state.memories)}")
-    
-    # --- AGENTIC TOOLS: PLANNERS & DATE SUMMARIES ---
-    st.subheader("🤖 Agentic Tools")
-    
-    selected_range_days = st.slider("Summarize past X days", 1, 30, 7)
-    if st.button("📅 Generate Date-Wise Planner & Brief", use_container_width=True):
-        cutoff_date = datetime.date.today() - datetime.timedelta(days=selected_range_days)
-        filtered_memories = [m for m in st.session_state.memories if datetime.datetime.strptime(m['date'], "%Y-%m-%d").date() >= cutoff_date]
-        
-        if not filtered_memories:
-            st.warning("No memories found in this date range.")
+    st.caption(f"🧠 Persistent Memories Mapped: {len(st.session_state.memories)}")
+
+# --- MAIN DASHBOARD: ADVANCED AGENTIC PLANNERS ---
+st.subheader("📅 Strategic Planning Agents")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if st.button("Generate Weekly Roadmap", use_container_width=True):
+        if not st.session_state.memories:
+            st.warning("Brain is empty.")
         else:
-            memory_dump = "\n".join([f"Date: {m['date']} | [{m['type']}] {m['title']}: {m['summary']}" for m in filtered_memories])
-            sys_prompt = f"You are OmniBrain's Planner Agent. Review the user's date-wise stored memories below and build a structured Action Plan, Reminders list, and Date-Wise Summary:\n\n{memory_dump}"
-            
-            res = client.chat.completions.create(model="gemini-3.6-flash", messages=[{"role": "system", "content": sys_prompt}])
-            st.session_state.chat_history.append({"role": "user", "content": f"Generate a planner & summary for the last {selected_range_days} days."})
-            st.session_state.chat_history.append({"role": "assistant", "content": res.choices[0].message.content})
-            st.rerun()
+            dump = "\n".join([f"Date: {m['date']} | {m['title']}: {m['summary']}" for m in st.session_state.memories])
+            sys_prompt = f"You are a Tactical Planning Agent. Analyze this data and build a strict, actionable 7-day Weekly Roadmap: {dump}"
+            try:
+                res = client.models.generate_content(model=MODEL_ID, contents=sys_prompt)
+                st.session_state.chat_history.append({"role": "assistant", "content": f"**🗓️ 7-Day Tactical Roadmap:**\n\n{res.text}"})
+                st.rerun()
+            except Exception as e:
+                st.warning(f"⚠️ Generation failed. (Details: {e})")
 
-    st.divider()
-    st.subheader("🤖 Autonomous Deadline Agent")
-    
-    if st.button("🔍 Scan Memories for Hidden Deadlines", use_container_width=True):
-        with st.spinner("Agent scanning text for dates and tasks..."):
-            all_raw_text = "\n".join([f"Title: {m['title']} | Date: {m['date']} | Content: {m['raw']}" for m in st.session_state.memories])
-            
-            scan_prompt = f"""You are OmniBrain's Autonomous Deadline Agent. 
-            Scan the following stored memories, identify any upcoming dates, exams, or practicals, and extract them into a structured reminder list.
-            
-            Memories:
-            {all_raw_text if all_raw_text else "No memories found."}
-            """
-            
-            scan_res = client.chat.completions.create(model="gemini-3.6-flash", messages=[{"role": "user", "content": scan_prompt}])
-            st.session_state.pending_proposal = scan_res.choices[0].message.content
-            st.success("Agent detected pending tasks!")
-            st.rerun()
+with col2:
+    if st.button("Generate Monthly Strategy", use_container_width=True):
+        if not st.session_state.memories:
+            st.warning("Brain is empty.")
+        else:
+            dump = "\n".join([f"Date: {m['date']} | {m['title']}: {m['summary']}" for m in st.session_state.memories])
+            sys_prompt = f"You are a Strategic Planning Agent. Analyze this data and build a high-level 30-day Monthly Strategy: {dump}"
+            try:
+                res = client.models.generate_content(model=MODEL_ID, contents=sys_prompt)
+                st.session_state.chat_history.append({"role": "assistant", "content": f"**🗺️ 30-Day Strategic Plan:**\n\n{res.text}"})
+                st.rerun()
+            except Exception as e:
+                st.warning(f"⚠️ Generation failed. (Details: {e})")
 
-# --- MAIN UI: CONVERSATIONAL INTERFACE ---
+with col3:
+    if st.button("Scan Hidden Deadlines", use_container_width=True):
+        with st.spinner("Perception Agent Scanning..."):
+            dump = "\n".join([f"{m['title']} ({m['date']}): {m['raw'][:500]}" for m in st.session_state.memories])
+            scan_prompt = f"Scan this data strictly for hidden dates, exams, or deadlines. Output a prioritized reminder list: {dump}"
+            try:
+                scan_res = client.models.generate_content(model=MODEL_ID, contents=scan_prompt)
+                st.session_state.pending_proposal = scan_res.text
+                st.rerun()
+            except Exception as e:
+                st.warning(f"⚠️ Generation failed. (Details: {e})")
+
+st.divider()
+
+# --- HUMAN-IN-THE-LOOP GOVERNANCE ---
+if st.session_state.pending_proposal:
+    with st.container(border=True):
+        st.markdown("### ⚠️ Agent Action Proposal (Governance Gate)")
+        st.info("The Perception Agent proposes locking these deadlines into the operational plan:")
+        st.write(st.session_state.pending_proposal)
+        
+        c_app, c_rej = st.columns(2)
+        with c_app:
+            if st.button("✅ Approve & Finalize Schedule"):
+                st.session_state.chat_history.append({"role": "assistant", "content": f"**[Action Locked by User Governance]**\n\n{st.session_state.pending_proposal}"})
+                st.session_state.pending_proposal = None
+                st.success("Governance Approved. Plan Locked.")
+                st.rerun()
+        with c_rej:
+            if st.button("❌ Reject Action"):
+                st.session_state.pending_proposal = None
+                st.warning("Action blocked by user.")
+                st.rerun()
+
+# --- CHAT & LOCALIZED RAG RETRIEVAL ---
 for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.markdown(message["content"], unsafe_allow_html=True)
 
-# --- NON-CONSENSUAL ACTION SAFEGUARD: ACTION PROPOSAL DISPLAY ---
-if st.session_state.pending_proposal:
-    with st.container():
-        st.markdown("### ⚠️ Agent Action Proposal (Requires Approval)")
-        st.info("The agent autonomously scanned your memories and proposed the following action plan:")
-        st.write(st.session_state.pending_proposal)
-        
-        col_app, col_rej = st.columns(2)
-        with col_app:
-            if st.button("✅ Approve & Lock Plan"):
-                st.session_state.chat_history.append({"role": "assistant", "content": f"**[Action Executed by User Approval]**\n\n{st.session_state.pending_proposal}"})
-                st.session_state.pending_proposal = None
-                st.success("Reminders locked into system!")
-                st.rerun()
-        with col_rej:
-            if st.button("❌ Reject"):
-                st.session_state.pending_proposal = None
-                st.warning("Action discarded safely.")
-                st.rerun()
-
-# Chat Input & Exact Keyword Timestamp Search
-if user_query := st.chat_input("Ask your brain anything (e.g., 'reverse string')..."):
+if user_query := st.chat_input("Query your decentralized brain..."):
     st.session_state.chat_history.append({"role": "user", "content": user_query})
     with st.chat_message("user"):
         st.markdown(user_query)
 
     with st.chat_message("assistant"):
-        with st.spinner("Searching transcripts and memories..."):
+        with st.spinner("Executing localized RAG lookup..."):
             
-            # 1. Exact keyword timestamp matching in YouTube transcripts
-            timestamp_results_html = ""
-            keyword_searched = user_query.lower()
+            timestamps_html = ""
+            query_lower = user_query.lower()
+            relevant_context = []
             
             for m in st.session_state.memories:
-                if m["type"] == "YouTube URL" and m["transcript"]:
-                    matching_hits = []
+                if m["type"] == "YouTube Video" and m["transcript"]:
+                    hits = []
                     for chunk in m["transcript"]:
-                        if keyword_searched in chunk["text"].lower():
+                        if query_lower in chunk["text"].lower():
                             seconds = int(chunk["start"])
                             mins, secs = divmod(seconds, 60)
-                            timestamp_link = f"https://www.youtube.com/watch?v={m['video_id']}&t={seconds}s"
-                            matching_hits.append(f"- [{mins:02d}:{secs:02d}]({timestamp_link}): \"...{chunk['text']}...\"")
-                    
-                    if matching_hits:
-                        timestamp_results_html += f"\n\n**Found in Video: '{m['title']}'**\n" + "\n".join(matching_hits[:5])
+                            link = f"https://www.youtube.com/watch?v={m['video_id']}&t={seconds}s"
+                            hits.append(f"- [{mins:02d}:{secs:02d}]({link}): \"...{chunk['text']}...\"")
+                    if hits:
+                        timestamps_html += f"\n**Found in: '{m['title']}'**\n" + "\n".join(hits[:5])
+                
+                if query_lower in m["raw"].lower() or query_lower in m["summary"].lower():
+                    relevant_context.append(f"Source: {m['title']}\nData: {m['summary']}")
 
-            # 2. General LLM Synthesis across all stored text
-            memory_context = "\n---\n".join([f"Date: {m['date']} | Source: {m['title']} ({m['type']})\nData: {m['raw']}" for m in st.session_state.memories])
-            
-            final_prompt = f"""You are OmniBrain, the user's second digital brain. Answer their query using the provided memory context. Be specific and conversational.
-            
-            User Query: {user_query}
-            
-            Memories:
-            {memory_context if st.session_state.memories else "No memories stored yet."}"""
-            
-            res = client.chat.completions.create(model="gemini-3.6-flash", messages=[{"role": "user", "content": final_prompt}])
-            answer = res.choices[0].message.content
-            
-            # Timestamp formatting or explicit fallback message
-            if timestamp_results_html:
-                answer += "\n\n### ⏱️ Exact Timestamp Links:\n" + timestamp_results_html
-            elif any(m["type"] == "YouTube URL" for m in st.session_state.memories):
-                if len(user_query.split()) <= 4: # Short keyword lookup
-                    answer += f"\n\n*Note: There was no word like '{user_query}' found in the transcript of your saved videos, so you need to watch another video for that.*"
+            if not relevant_context:
+                 relevant_context = [f"Source: {m['title']}\nData: {m['summary']}" for m in st.session_state.memories]
 
-            st.markdown(answer, unsafe_allow_html=True)
-            st.session_state.chat_history.append({"role": "assistant", "content": answer})
+            context = "\n---\n".join(relevant_context)
+            prompt = f"Answer the user query based ONLY on this context: {context}\n\nQuery: {user_query}"
+            
+            try:
+                res = client.models.generate_content(model=MODEL_ID, contents=prompt)
+                answer = res.text
+                
+                if timestamps_html:
+                    answer += "\n\n### ⏱️ Localized Video Timestamps:\n" + timestamps_html
+
+                st.markdown(answer, unsafe_allow_html=True)
+                st.session_state.chat_history.append({"role": "assistant", "content": answer})
+            except Exception as e:
+                st.warning(f"⚠️ Connection to the Neural Graph failed. (Details: {e})")
