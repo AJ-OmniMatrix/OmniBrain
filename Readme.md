@@ -42,7 +42,7 @@ graph TD
     classDef output fill:#6f42c1,stroke:#5a32a3,stroke-width:2px,color:#fff,rx:5px,ry:5px;
 
     %% Nodes
-    A[📥 User Input<br/>PDF / Web / YouTube]:::input
+    A[📥 User Input<br/> PDF / Web / YouTube]:::input
     B[(💾 Local JSON Brain<br/>Zero-Dependency Disk)]:::storage
     C{🔍 Localized RAG<br/>Keyword & Timestamp Filter}:::engine
     D[🧠 Gemini LLM<br/>Dynamic Fallback Routing]:::engine
