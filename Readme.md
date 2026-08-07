@@ -31,6 +31,29 @@ OmniBrain is a resilient, autonomous governance agent and universal second brain
 * **Storage:** Local Disk JSON Persistence 
 
 ---
+### 🔀 System Architecture Flow
+
+```mermaid
+graph TD
+    %% Styling
+    classDef input fill:#2b3137,stroke:#24292e,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef storage fill:#0366d6,stroke:#005cc5,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef engine fill:#28a745,stroke:#22863a,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+    classDef output fill:#6f42c1,stroke:#5a32a3,stroke-width:2px,color:#fff,rx:5px,ry:5px;
+
+    %% Nodes
+    A[📥 User Input<br/>PDF / Web / YouTube]:::input
+    B[(💾 Local JSON Brain<br/>Zero-Dependency Disk)]:::storage
+    C{🔍 Localized RAG<br/>Keyword & Timestamp Filter}:::engine
+    D[🧠 Gemini LLM<br/>Dynamic Fallback Routing]:::engine
+    E[🚀 Actionable Output<br/>Roadmaps & Governance]:::output
+
+    %% Flow
+    A -->|Ingest & Parse| B
+    B -->|Search Query| C
+    C -->|Context Injection| D
+    D -->|Generation| E
+---
 
 ## 💻 Local Setup & Installation
 
