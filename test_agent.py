@@ -1,7 +1,6 @@
 import os
 import json
 from google import genai
-import toml
 
 def test_persistence_layer():
     print("[-] Testing Disk Persistence Layer...")
@@ -27,16 +26,12 @@ def test_persistence_layer():
     print("[+] PASS: Disk Persistence & JSON Backing Operational.")
 
 def test_ai_connection():
-    print("[-] Testing Gemini API Model Routing (`gemini-3.6-flash`)...")
+    print("[-] Testing Gemini API Model Routing (`gemini-3.5-flash`)...")
     try:
-        # Load secrets safely
-        with open(".streamlit/secrets.toml", "r") as f:
-            secrets = toml.load(f)
-        api_key = secrets["GEMINI_API_KEY"]
-        
+        api_key = "AQ.Ab8RN6IgO2Z2uwDMDY08l4Rq5iCCBQ7kKDAhU963KX0FgJzEzA"
         client = genai.Client(api_key=api_key)
         res = client.models.generate_content(
-            model='gemini-3.6-flash', 
+            model='gemini-3.5-flash', 
             contents="Confirm system operational status with a single word."
         )
         print(f"[+] PASS: AI Engine Connected. Response: {res.text.strip()}")

@@ -7,7 +7,7 @@ import datetime
 import json
 import os
 
-# --- PERSISTENCE CONFIGURATION (Fix 1: Disk Backing) ---
+# --- PERSISTENCE CONFIGURATION ---
 STORAGE_FILE = "brain_storage.json"
 
 def load_persisted_memories():
@@ -41,14 +41,28 @@ st.markdown("""
 st.title("OmniBrain 🧠")
 st.caption("Autonomous Agentic Memory | Local RAG & Zero-Dependency Disk Persistence")
 
-# --- MODERN GOOGLE AUTHENTICATION ---
+# --- DIRECT AUTHENTICATION & MODEL FALLBACK CONFIGURATION ---
 try:
-    api_key = st.secrets["GEMINI_API_KEY"]
-    client = genai.Client(api_key=api_key)
-    MODEL_ID = 'gemini-3.6-flash'
-except KeyError:
-    st.error("🚨 Missing API Key in .streamlit/secrets.toml")
+    API_KEY = "AQ.Ab8RN6IgO2Z2uwDMDY08l4Rq5iCCBQ7kKDAhU963KX0FgJzEzA"
+    client = genai.Client(api_key=API_KEY)
+    
+    # Priority list of models to prevent 503 bottlenecks
+    FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
+except Exception as e:
+    st.error(f"🚨 Authentication Error: {e}")
     st.stop()
+
+def safe_generate(contents):
+    """Automatically rotates through model endpoints if a 503 overload occurs."""
+    last_error = None
+    for model_id in FALLBACK_MODELS:
+        try:
+            res = client.models.generate_content(model=model_id, contents=contents)
+            return res
+        except Exception as e:
+            last_error = e
+            continue
+    raise last_error
 
 # --- STATE INITIALIZATION WITH DISK BACKING ---
 if "memories" not in st.session_state:
@@ -56,7 +70,7 @@ if "memories" not in st.session_state:
     
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        {"role": "assistant", "content": "Welcome to OmniBrain. I am your autonomous governance agent. My memory layer features disk-backed JSON persistence, localized RAG filtering, and human-in-the-loop safety gates."}
+        {"role": "assistant", "content": "Welcome to OmniBrain. I am your autonomous agent. My memory layer features disk-backed JSON persistence, localized RAG filtering, and human-in-the-loop safety gates."}
     ]
 
 if "pending_proposal" not in st.session_state:
@@ -131,16 +145,15 @@ with st.sidebar:
                     }
                     
                     st.session_state.memories.append(new_memory)
-                    save_persisted_memories(st.session_state.memories) # Commit to disk
-                    
+                    save_persisted_memories(st.session_state.memories) 
                     st.success(f"Successfully Indexed & Persisted: {title}")
                 except Exception as e:
-                    st.warning(f"⚠️ API Limit Reached. Wait 60 seconds. (Details: {e})")
+                    st.warning(f"⚠️ API Error: {e}")
 
     st.divider()
     st.caption(f"🧠 Persistent Memories Mapped: {len(st.session_state.memories)}")
 
-# --- MAIN DASHBOARD: ADVANCED AGENTIC PLANNERS ---
+# --- MAIN DASHBOARD: STRATEGIC PLANNERS ---
 st.subheader("📅 Strategic Planning Agents")
 col1, col2, col3 = st.columns(3)
 
