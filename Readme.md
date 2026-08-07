@@ -53,6 +53,7 @@ graph TD
     B -->|Search Query| C
     C -->|Context Injection| D
     D -->|Generation| E
+```
 ---
 
 ## 💻 Local Setup & Installation
@@ -63,3 +64,4 @@ To run this project locally, follow these steps:
 ```bash
 git clone [https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git)
 cd YOUR_REPO_NAME
+```
