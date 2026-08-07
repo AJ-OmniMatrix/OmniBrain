@@ -1,13 +1,17 @@
 from google import genai
 
-# Direct authentication with your key
-API_KEY = "AQ.Ab8RN6IgO2Z2uwDMDY08l4Rq5iCCBQ7kKDAhU963KX0FgJzEzA"
-client = genai.Client(api_key=API_KEY)
+API_KEY = "AQ.Ab8RN6KL-eQdPMn9U6x0v2LGvz1-ugmGnQMpYcDikGd0EubLSg"
 
-print("Fetching available models...")
+print("[-] Initializing Gemini Client...")
 try:
-    for m in client.models.list():
-        print(m.name)
-    print("[+] PASS: Model listing successful.")
+    client = genai.Client(api_key=API_KEY)
+    print("[+] Client initialized successfully.")
+    
+    print("[-] Fetching available models...")
+    models = client.models.list()
+    for m in models:
+        print(f"  -> {m.name}")
+            
+    print("\n[+] PASS: Diagnostic complete. API Key & Client are 100% operational!")
 except Exception as e:
-    print(f"[-] FAIL: Error fetching models -> {e}")
+    print(f"[-] FAIL: Diagnostic Error -> {e}")

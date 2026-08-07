@@ -26,6 +26,13 @@ def save_persisted_memories(memories):
     except Exception as e:
         st.error(f"Storage Error: {e}")
 
+# --- CACHED PDF EXTRACTION (PREVENTS RE-PARSING LAG) ---
+@st.cache_data(show_spinner=False)
+def parse_pdf_cached(uploaded_file):
+    """Parses the entire PDF once and caches the result in memory."""
+    reader = PdfReader(uploaded_file)
+    return "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+
 # --- UI CONFIGURATION ---
 st.set_page_config(page_title="OmniBrain | Universal Second Brain", page_icon="🧠", layout="wide")
 
@@ -41,19 +48,22 @@ st.markdown("""
 st.title("OmniBrain 🧠")
 st.caption("Autonomous Agentic Memory | Local RAG & Zero-Dependency Disk Persistence")
 
-# --- DIRECT AUTHENTICATION & MODEL FALLBACK CONFIGURATION ---
+# --- DIRECT AI STUDIO AUTHENTICATION & FALLBACK ENGINE ---
 try:
-    API_KEY = "AQ.Ab8RN6IgO2Z2uwDMDY08l4Rq5iCCBQ7kKDAhU963KX0FgJzEzA"
+    try:
+        API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6KL-eQdPMn9U6x0v2LGvz1-ugmGnQMpYcDikGd0EubLSg")
+    except Exception:
+        API_KEY = "AQ.Ab8RN6KL-eQdPMn9U6x0v2LGvz1-ugmGnQMpYcDikGd0EubLSg"
+        
     client = genai.Client(api_key=API_KEY)
     
-    # Priority list of models to prevent 503 bottlenecks
-    FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']
+    FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.6-flash']
 except Exception as e:
-    st.error(f"🚨 Authentication Error: {e}")
+    st.error(f"🚨 Client Initialization Failed: {e}")
     st.stop()
 
 def safe_generate(contents):
-    """Automatically rotates through model endpoints if a 503 overload occurs."""
+    """Dynamically cycles through active model endpoints to bypass server spikes."""
     last_error = None
     for model_id in FALLBACK_MODELS:
         try:
@@ -62,7 +72,7 @@ def safe_generate(contents):
         except Exception as e:
             last_error = e
             continue
-    raise last_error
+    raise Exception(f"All neural endpoints temporarily busy. ({last_error})")
 
 # --- STATE INITIALIZATION WITH DISK BACKING ---
 if "memories" not in st.session_state:
@@ -70,7 +80,7 @@ if "memories" not in st.session_state:
     
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        {"role": "assistant", "content": "Welcome to OmniBrain. I am your autonomous agent. My memory layer features disk-backed JSON persistence, localized RAG filtering, and human-in-the-loop safety gates."}
+        {"role": "assistant", "content": "Welcome to OmniBrain. I am your autonomous governance agent. My memory layer features disk-backed JSON persistence, localized RAG filtering, and human-in-the-loop safety gates."}
     ]
 
 if "pending_proposal" not in st.session_state:
@@ -101,23 +111,61 @@ with st.sidebar:
     else:
         if source_type == "Text Paste":
             content_text = st.text_area("Paste unstructured text here...")
+            
         elif source_type == "PDF Document":
             uploaded_file = st.file_uploader("Upload PDF", type=["pdf"])
             if uploaded_file:
-                reader = PdfReader(uploaded_file)
-                content_text = "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
+                with st.spinner("Extracting entire PDF document..."):
+                    content_text = parse_pdf_cached(uploaded_file)
+                st.caption(f"📄 Extracted {len(content_text):,} characters from PDF.")
+                
         elif source_type == "YouTube Video":
             yt_url = st.text_input("YouTube URL")
             if yt_url:
                 try:
-                    yt_video_id = yt_url.split("v=")[-1].split("&")[0].split("/")[-1]
-                    ytt_api = YouTubeTranscriptApi()
-                    fetched = ytt_api.fetch(yt_video_id)
+                    # Robust URL parsing for both youtube.com and youtu.be shortlinks
+                    if "youtu.be" in yt_url:
+                        yt_video_id = yt_url.split("/")[-1].split("?")[0]
+                    else:
+                        yt_video_id = yt_url.split("v=")[-1].split("&")[0]
+                    
+                    try:
+                        fetched = YouTubeTranscriptApi.get_transcript(yt_video_id)
+                    except AttributeError:
+                        ytt_api = YouTubeTranscriptApi()
+                        fetched = ytt_api.fetch(yt_video_id)
+
+                    formatted_transcript = []
+
                     for t in fetched:
-                        transcript_data.append({"text": t.get('text', ''), "start": t.get('start', 0)})
-                    content_text = " ".join([t["text"] for t in transcript_data])
+                        if isinstance(t, dict):
+                            text_val = t.get('text', '')
+                            start_val = t.get('start', 0)
+                        else:
+                            text_val = getattr(t, 'text', str(t))
+                            start_val = getattr(t, 'start', 0)
+
+                        seconds = int(start_val)  # Exact integer seconds (e.g., 2171)
+                        
+                        # Calculate Hours, Minutes, Seconds correctly
+                        hours, remainder = divmod(seconds, 3600)
+                        mins, secs = divmod(remainder, 60)
+                        
+                        if hours > 0:
+                            timestamp_str = f"{hours:02d}:{mins:02d}:{secs:02d}"
+                        else:
+                            timestamp_str = f"{mins:02d}:{secs:02d}"
+
+                        # True integer seconds in the URL parameter (&t=2171s)
+                        link_url = f"https://www.youtube.com/watch?v={yt_video_id}&t={seconds}s"
+                        
+                        transcript_data.append({"text": text_val, "start": seconds, "url": link_url})
+                        formatted_transcript.append(f"[{timestamp_str}]({link_url}) {text_val}")
+
+                    content_text = "\n".join(formatted_transcript)
                 except Exception as e:
                     st.error(f"Transcript extraction failed: {e}")
+                    
         elif source_type == "Website URL":
             web_url = st.text_input("Website Link")
             if web_url:
@@ -130,16 +178,16 @@ with st.sidebar:
 
         if st.button("Save to Brain", use_container_width=True) and content_text and title:
             with st.spinner("Agent mapping knowledge to disk..."):
-                prompt = f"Extract 3 key structural concepts from this data. \n\nData:\n{content_text[:15000]}"
+                prompt = f"Extract 3 key structural concepts from this data. \n\nData:\n{content_text[:10000]}"
                 try:
-                    res = client.models.generate_content(model=MODEL_ID, contents=prompt)
+                    res = safe_generate(contents=prompt)
                     
                     new_memory = {
                         "title": title,
                         "type": source_type,
                         "date": str(memory_date),
                         "summary": res.text,
-                        "raw": content_text[:15000],
+                        "raw": content_text,
                         "transcript": transcript_data,
                         "video_id": yt_video_id
                     }
@@ -148,7 +196,7 @@ with st.sidebar:
                     save_persisted_memories(st.session_state.memories) 
                     st.success(f"Successfully Indexed & Persisted: {title}")
                 except Exception as e:
-                    st.warning(f"⚠️ API Error: {e}")
+                    st.warning(f"⚠️ {e}")
 
     st.divider()
     st.caption(f"🧠 Persistent Memories Mapped: {len(st.session_state.memories)}")
@@ -162,40 +210,40 @@ with col1:
         if not st.session_state.memories:
             st.warning("Brain is empty.")
         else:
-            dump = "\n".join([f"Date: {m['date']} | {m['title']}: {m['summary']}" for m in st.session_state.memories])
+            dump = "\n".join([f"Date: {m.get('date', '')} | {m.get('title', 'Untitled')}: {m.get('summary', '')}" for m in st.session_state.memories])
             sys_prompt = f"You are a Tactical Planning Agent. Analyze this data and build a strict, actionable 7-day Weekly Roadmap: {dump}"
             try:
-                res = client.models.generate_content(model=MODEL_ID, contents=sys_prompt)
+                res = safe_generate(contents=sys_prompt)
                 st.session_state.chat_history.append({"role": "assistant", "content": f"**🗓️ 7-Day Tactical Roadmap:**\n\n{res.text}"})
                 st.rerun()
             except Exception as e:
-                st.warning(f"⚠️ Generation failed. (Details: {e})")
+                st.warning(f"⚠️ {e}")
 
 with col2:
     if st.button("Generate Monthly Strategy", use_container_width=True):
         if not st.session_state.memories:
             st.warning("Brain is empty.")
         else:
-            dump = "\n".join([f"Date: {m['date']} | {m['title']}: {m['summary']}" for m in st.session_state.memories])
+            dump = "\n".join([f"Date: {m.get('date', '')} | {m.get('title', 'Untitled')}: {m.get('summary', '')}" for m in st.session_state.memories])
             sys_prompt = f"You are a Strategic Planning Agent. Analyze this data and build a high-level 30-day Monthly Strategy: {dump}"
             try:
-                res = client.models.generate_content(model=MODEL_ID, contents=sys_prompt)
+                res = safe_generate(contents=sys_prompt)
                 st.session_state.chat_history.append({"role": "assistant", "content": f"**🗺️ 30-Day Strategic Plan:**\n\n{res.text}"})
                 st.rerun()
             except Exception as e:
-                st.warning(f"⚠️ Generation failed. (Details: {e})")
+                st.warning(f"⚠️ {e}")
 
 with col3:
     if st.button("Scan Hidden Deadlines", use_container_width=True):
         with st.spinner("Perception Agent Scanning..."):
-            dump = "\n".join([f"{m['title']} ({m['date']}): {m['raw'][:500]}" for m in st.session_state.memories])
+            dump = "\n".join([f"{m.get('title', 'Untitled')} ({m.get('date', '')}): {m.get('raw', '')[:500]}" for m in st.session_state.memories])
             scan_prompt = f"Scan this data strictly for hidden dates, exams, or deadlines. Output a prioritized reminder list: {dump}"
             try:
-                scan_res = client.models.generate_content(model=MODEL_ID, contents=scan_prompt)
+                scan_res = safe_generate(contents=scan_prompt)
                 st.session_state.pending_proposal = scan_res.text
                 st.rerun()
             except Exception as e:
-                st.warning(f"⚠️ Generation failed. (Details: {e})")
+                st.warning(f"⚠️ {e}")
 
 st.divider()
 
@@ -232,39 +280,46 @@ if user_query := st.chat_input("Query your decentralized brain..."):
     with st.chat_message("assistant"):
         with st.spinner("Executing localized RAG lookup..."):
             
-            timestamps_html = ""
             query_lower = user_query.lower()
             relevant_context = []
             
+            stop_words = {"timestamp", "timestamps", "time", "where", "when", "what", "is", "of", "in", "the", "a", "an", "for", "to", "at"}
+            query_words = [w for w in query_lower.split() if w not in stop_words and len(w) > 2]
+
             for m in st.session_state.memories:
-                if m["type"] == "YouTube Video" and m["transcript"]:
-                    hits = []
-                    for chunk in m["transcript"]:
-                        if query_lower in chunk["text"].lower():
-                            seconds = int(chunk["start"])
-                            mins, secs = divmod(seconds, 60)
-                            link = f"https://www.youtube.com/watch?v={m['video_id']}&t={seconds}s"
-                            hits.append(f"- [{mins:02d}:{secs:02d}]({link}): \"...{chunk['text']}...\"")
-                    if hits:
-                        timestamps_html += f"\n**Found in: '{m['title']}'**\n" + "\n".join(hits[:5])
-                
-                if query_lower in m["raw"].lower() or query_lower in m["summary"].lower():
-                    relevant_context.append(f"Source: {m['title']}\nData: {m['summary']}")
+                m_title = m.get("title", "Untitled")
+                m_raw = m.get("raw", "")
+                m_summary = m.get("summary", "")
+
+                if query_lower in m_raw.lower() or query_lower in m_summary.lower() or any(w in m_raw.lower() for w in query_words):
+                    content_to_pass = m_raw if m_raw else m_summary
+                    relevant_context.append(f"Source: {m_title}\nFull Transcript Content with Links:\n{content_to_pass}")
 
             if not relevant_context:
-                 relevant_context = [f"Source: {m['title']}\nData: {m['summary']}" for m in st.session_state.memories]
+                 relevant_context = [
+                     f"Source: {m.get('title', 'Untitled')}\nFull Transcript Content with Links:\n{m.get('raw', m.get('summary', ''))}" 
+                     for m in st.session_state.memories
+                 ]
 
             context = "\n---\n".join(relevant_context)
-            prompt = f"Answer the user query based ONLY on this context: {context}\n\nQuery: {user_query}"
+            
+            # Repaired System Prompt - removed the confusing placeholders
+            prompt = f"""Answer the user query based strictly on the provided context.
+            
+            CRITICAL INSTRUCTION FOR YOUTUBE SOURCES:
+            Every line in the transcript context starts with a clickable markdown link.
+            When explaining where a topic is discussed, you MUST copy the exact clickable markdown timestamp link exactly as it is written in the context and place it directly in your response text. Do not modify the URL in any way.
+
+            Context:
+            {context}
+
+            Query: {user_query}"""
             
             try:
-                res = client.models.generate_content(model=MODEL_ID, contents=prompt)
+                res = safe_generate(contents=prompt)
                 answer = res.text
-                
-                if timestamps_html:
-                    answer += "\n\n### ⏱️ Localized Video Timestamps:\n" + timestamps_html
 
                 st.markdown(answer, unsafe_allow_html=True)
                 st.session_state.chat_history.append({"role": "assistant", "content": answer})
             except Exception as e:
-                st.warning(f"⚠️ Connection to the Neural Graph failed. (Details: {e})")
+                st.warning(f"⚠️ {e}")
