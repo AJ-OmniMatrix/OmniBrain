@@ -1,30 +1,52 @@
 [
     {
-        "title": "C++ Advanced Pointers & Memory Management",
+        "title": "Sector 4 Chemical Spill",
         "type": "Text Paste",
         "date": "2026-08-07",
-        "summary": "Covered stack vs heap allocation, smart pointers, and memory leaks in C++.",
+        "role_scope": "Investigator",
+        "status": "Critical",
+        "summary": "Detected 400 gallons of industrial runoff near the hospital water supply.",
         "concepts": [
-            "C++",
-            "Memory Management",
-            "Pointers"
+            "Chemical Spill",
+            "Water Contamination",
+            "Hazmat"
         ],
-        "raw": "Lecture Notes: C++ Memory Allocation. Always use std::unique_ptr for single ownership.",
-        "transcript": [],
-        "video_id": ""
+        "recommendations": "Dispatch hazmat team immediately. Shut off main valve.",
+        "notes": "Witnesses reported a foul odor at 0400 hours.",
+        "attachment": "attachments\\sample_spill.jpg",
+        "raw": "Full text of the chemical spill incident report..."
     },
     {
-        "title": "Digital Electronics Lab Assignment 2",
+        "title": "Hospital HVAC Compliance Check",
         "type": "PDF Document",
         "date": "2026-08-06",
-        "summary": "Logic gate minimization using Karnaugh Maps and flip-flop circuit design.",
+        "role_scope": "Hospital Authority",
+        "status": "Moderate",
+        "summary": "Routine check of airborne filtration systems. Filters operating at 85% efficiency.",
         "concepts": [
-            "Digital Electronics",
-            "K-Maps",
-            "Circuits"
+            "Air Quality",
+            "Hospital",
+            "Maintenance"
         ],
-        "raw": "Digital Electronics Assignment 2: Design 4-bit synchronous counter. Submission Portal Closes: August 11.",
-        "transcript": [],
-        "video_id": ""
+        "recommendations": "Schedule filter replacement by August 20th.",
+        "notes": "No immediate risk to patients.",
+        "attachment": null,
+        "raw": "Routine compliance checklist for Hospital wing B..."
+    },
+    {
+        "title": "Public Park Noise Violation",
+        "type": "Text Paste",
+        "date": "2026-08-03",
+        "role_scope": "All",
+        "status": "Resolved",
+        "summary": "Construction crew operating heavy machinery past 10 PM ordinance.",
+        "concepts": [
+            "Noise Pollution",
+            "Public Disturbance"
+        ],
+        "recommendations": "Issue formal warning to contractor.",
+        "notes": "Contractor apologized and ceased operations.",
+        "attachment": null,
+        "raw": "Complaint logged by residents regarding excessive noise."
     }
 ]

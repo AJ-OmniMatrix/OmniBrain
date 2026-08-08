@@ -1,7 +1,3 @@
-"""
-Tests for agent_core.py using a fake LLM.
-"""
-
 import datetime
 import agent_core as ac
 

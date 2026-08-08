@@ -1,17 +1,23 @@
-from google import genai
+import os
+import sys
 
-API_KEY = "AQ.Ab8RN6IRiGtSXFQaLQJRSH_273lqhcpccAocKHAeytF14yiFcg"
+print("--- OmniBrain Diagnostic Tool ---")
+print(f"Python Version: {sys.version}")
 
-print("[-] Initializing Gemini Client...")
 try:
-    client = genai.Client(api_key=API_KEY)
-    print("[+] Client initialized successfully.")
-    
-    print("[-] Fetching available models...")
-    models = client.models.list()
-    for m in models:
-        print(f"  -> {m.name}")
-            
-    print("\n[+] PASS: Diagnostic complete. API Key & Client are 100% operational!")
-except Exception as e:
-    print(f"[-] FAIL: Diagnostic Error -> {e}")
+    import streamlit
+    print("[+] Streamlit installed.")
+except ImportError:
+    print("[-] Streamlit missing.")
+
+try:
+    from google import genai
+    print("[+] google-genai installed.")
+except ImportError:
+    print("[-] google-genai missing.")
+
+api_key = os.environ.get("GEMINI_API_KEY")
+if api_key:
+    print(f"[+] GEMINI_API_KEY found (starts with: {api_key[:6]}...)")
+else:
+    print("[-] GEMINI_API_KEY environment variable is NOT set.")
