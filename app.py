@@ -51,9 +51,9 @@ st.caption("Autonomous Agentic Memory | Local RAG & Zero-Dependency Disk Persist
 # --- DIRECT AI STUDIO AUTHENTICATION & FALLBACK ENGINE ---
 try:
     try:
-        API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6KL-eQdPMn9U6x0v2LGvz1-ugmGnQMpYcDikGd0EubLSg")
+        API_KEY = st.secrets.get("GEMINI_API_KEY", "AQ.Ab8RN6IRiGtSXFQaLQJRSH_273lqhcpccAocKHAeytF14yiFcg")
     except Exception:
-        API_KEY = "AQ.Ab8RN6KL-eQdPMn9U6x0v2LGvz1-ugmGnQMpYcDikGd0EubLSg"
+        API_KEY = "AQ.Ab8RN6IRiGtSXFQaLQJRSH_273lqhcpccAocKHAeytF14yiFcg"
         
     client = genai.Client(api_key=API_KEY)
     

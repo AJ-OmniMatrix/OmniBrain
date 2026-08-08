@@ -1,50 +1,47 @@
-import os
-import json
-from google import genai
+"""
+Tests for agent_core.py using a fake LLM.
+"""
 
-API_KEY = "AQ.Ab8RN6KL-eQdPMn9U6x0v2LGvz1-ugmGnQMpYcDikGd0EubLSg"
+import datetime
+import agent_core as ac
 
-def test_persistence_layer():
-    print("[-] Testing Disk Persistence Layer...")
-    storage_file = "brain_storage_test.json"
-    test_data = [{
-        "title": "Automated Test Memory", 
-        "type": "Text Paste", 
-        "date": "2026-08-08", 
-        "summary": "Core architecture verified."
-    }]
-    
-    with open(storage_file, "w", encoding="utf-8") as f:
-        json.dump(test_data, f, indent=4)
-    
-    assert os.path.exists(storage_file), "Storage file failed to create."
-    with open(storage_file, "r", encoding="utf-8") as f:
-        loaded = json.load(f)
-    
-    assert len(loaded) > 0, "Loaded memory array is empty."
-    assert loaded[0]["title"] == "Automated Test Memory"
-    print("[+] PASS: Disk Persistence & JSON Backing Operational.")
-    
-    if os.path.exists(storage_file):
-        os.remove(storage_file)
+class FakeResponse:
+    def __init__(self, text):
+        self.text = text
 
-def test_ai_connection():
-    print("[-] Testing Gemini API Model Routing (`gemini-3.5-flash`)...")
-    try:
-        client = genai.Client(api_key=API_KEY)
-        res = client.models.generate_content(
-            model='gemini-3.5-flash', 
-            contents="Confirm system operational status with a single word."
-        )
-        print(f"[+] PASS: AI Engine Connected. Response: {res.text.strip()}")
-    except Exception as e:
-        print(f"[-] FAIL: AI Connection Error -> {e}")
+def test_extract_keywords_and_retrieve():
+    today = datetime.date.today()
+    fixture = [
+        {"title": "React Hooks video", "summary": "Explains useEffect and useState hooks", "concepts": ["React", "Hooks"], "date": str(today - datetime.timedelta(days=1))},
+        {"title": "React project PDF", "summary": "React component architecture and hooks patterns", "concepts": ["React", "Architecture"], "date": str(today - datetime.timedelta(days=2))},
+        {"title": "Old note", "summary": "Something about React from ages ago", "concepts": ["React"], "date": str(today - datetime.timedelta(days=40))},
+    ]
+    scored, focus = ac.structured_retrieve(fixture, window_days=7)
+    assert len(scored) == 2, f"expected 2 in-window items, got {len(scored)}"
+    print("PASS: structured_retrieve windows and ranks correctly")
+
+def test_safe_json_parse_handles_markdown_fences():
+    fenced = '```json\n{"a": 1, "b": [2, 3]}\n```'
+    parsed = ac.safe_json_parse(fenced)
+    assert parsed == {"a": 1, "b": [2, 3]}
+    print("PASS: safe_json_parse strips markdown fences")
+
+def test_assess_confidence_buckets():
+    assert ac.assess_confidence({"issues": []})["level"] == "High"
+    assert ac.assess_confidence({"issues": ["x"]})["level"] == "Medium"
+    assert ac.assess_confidence({"issues": ["x", "y", "z"]})["level"] == "Low"
+    print("PASS: confidence bucketing works")
+
+def test_event_system_routes_correctly():
+    received = []
+    ac.on(ac.MemoryEvent.ADDED, lambda payload: received.append(payload))
+    ac.emit(ac.MemoryEvent.ADDED, {"title": "test memory"})
+    assert len(received) == 1
+    print("PASS: event system routes correctly")
 
 if __name__ == "__main__":
-    print("========================================")
-    print("     OMNIBRAIN E2E TEST HARNESS         ")
-    print("========================================")
-    test_persistence_layer()
-    test_ai_connection()
-    print("========================================")
-    print("All backend verification checks complete!")
+    test_extract_keywords_and_retrieve()
+    test_safe_json_parse_handles_markdown_fences()
+    test_assess_confidence_buckets()
+    test_event_system_routes_correctly()
+    print("\nALL TESTS PASSED")

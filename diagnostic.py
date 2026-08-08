@@ -1,6 +1,6 @@
 from google import genai
 
-API_KEY = "AQ.Ab8RN6KL-eQdPMn9U6x0v2LGvz1-ugmGnQMpYcDikGd0EubLSg"
+API_KEY = "AQ.Ab8RN6IRiGtSXFQaLQJRSH_273lqhcpccAocKHAeytF14yiFcg"
 
 print("[-] Initializing Gemini Client...")
 try:

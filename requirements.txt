@@ -1,5 +1,5 @@
 streamlit
 google-genai
-youtube-transcript-api
 pypdf
 trafilatura
+youtube-transcript-api
