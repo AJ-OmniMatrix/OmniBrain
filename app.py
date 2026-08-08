@@ -3,16 +3,20 @@ app.py -- OmniBrain E.R.I.S. (Environmental Report Intelligence System)
 Integrates Core (Attachments), Advanced (Roles), and Elite (Export) Hackathon Bounties.
 """
 import streamlit as st
+import os
+import datetime
+import json
+import re
 from google import genai
 from youtube_transcript_api import YouTubeTranscriptApi
 from pypdf import PdfReader
 import trafilatura
-import datetime
-import json
-import os
-import re
 
 import agent_core as ac
+
+# --- PERMANENT FIX: Force-disable Vertex AI routing ---
+# This ensures your API key is always directed to the correct Gemini API endpoint
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "false"
 
 STORAGE_FILE = "brain_storage.json"
 ATTACHMENT_DIR = "attachments"
@@ -55,7 +59,7 @@ if not API_KEY:
     st.error("🚨 No GEMINI_API_KEY found in .streamlit/secrets.toml or environment variables.")
     st.stop()
 
-# Strip any accidental whitespace from copy-pasting
+# Strip any accidental whitespace
 API_KEY = API_KEY.strip()
 client = genai.Client(api_key=API_KEY)
 FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"]
@@ -111,7 +115,7 @@ with st.sidebar:
         yt_url = st.text_input("YouTube Drone/Site Footage URL")
         if yt_url:
             try:
-                video_id = yt_url.split("/")[-1].split("?")[0] if "youtu.be" in yt_url else yt_url.split("v=")[-1].split("&")[0]
+                video_id = yt_url.split("/")[-1].split("?")[0] if "youtu.be" in yt_url else yt_url.split("v=")-1.split("&")[0]
                 fetched = YouTubeTranscriptApi().fetch(video_id) if hasattr(YouTubeTranscriptApi(), 'fetch') else YouTubeTranscriptApi.get_transcript(video_id)
                 
                 formatted_transcript = []
@@ -218,11 +222,11 @@ st.subheader("📁 Environment Report Database")
 if visible_memories:
     for i, d in enumerate(visible_memories):
         with st.expander(f"{'🔴' if 'Critical' in d.get('status','') else '🟢'} {d['title']} ({d['date']})"):
-            st.markdown(f"**Status:** {d.get('status', 'N/A')} | **Scope:** {d.get('role_scope', 'All')}")
+            st.markdown(f"**Status:** {d.get('status', 'N/A')} | **Scope:** {', '.join(d.get('role_scope', ['All']))}")
             st.write(f"**Summary:** {d['summary']}")
             st.write(f"**Recommendations:** {d.get('recommendations', 'None')}")
             
-            # CORE BOUNTY: Attachment Display (Bulletproofed)
+            # CORE BOUNTY: Attachment Display
             if d.get("attachment") and os.path.exists(d["attachment"]):
                 st.markdown("---")
                 st.markdown("**📎 Attached Evidence:**")
@@ -230,7 +234,7 @@ if visible_memories:
                     try:
                         st.image(d["attachment"], width=300)
                     except Exception:
-                        st.warning("⚠️ Attached image file is corrupted or empty (Dummy Data).")
+                        st.warning("⚠️ Attached image file is corrupted or empty.")
                 else:
                     st.write(d["attachment"])
             
