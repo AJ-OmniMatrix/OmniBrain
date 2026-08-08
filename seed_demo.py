@@ -8,10 +8,10 @@ today = datetime.date.today()
 
 os.makedirs(ATTACHMENT_DIR, exist_ok=True)
 
-# Create a fake image for the attachment bounty
+# Create a fake dummy image
 dummy_image_path = os.path.join(ATTACHMENT_DIR, "sample_spill.jpg")
 with open(dummy_image_path, "wb") as f:
-    f.write(b"") # Empty byte file just to satisfy path existence
+    f.write(b"") # Empty file to safely test try/except logic
 
 mock_memories = [
     {

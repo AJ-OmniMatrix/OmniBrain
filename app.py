@@ -1,6 +1,6 @@
 """
 app.py -- OmniBrain E.R.I.S. (Environmental Report Intelligence System)
-Integrates Core, Advanced, and Elite Hackathon Bounties.
+Integrates Core (Attachments), Advanced (Roles), and Elite (Export) Hackathon Bounties.
 """
 import streamlit as st
 from google import genai
@@ -10,7 +10,7 @@ import trafilatura
 import datetime
 import json
 import os
-import base64
+import re
 
 import agent_core as ac
 
@@ -49,12 +49,14 @@ st.markdown("""
 st.title("OmniBrain E.R.I.S. 🌍")
 st.caption("Environmental Report Intelligence System | Agentic Remediation & Governance")
 
-# --- GEMINI AUTHENTICATION ---
+# --- BULLETPROOF GEMINI AUTHENTICATION ---
 API_KEY = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 if not API_KEY:
-    st.error("🚨 No GEMINI_API_KEY found.")
+    st.error("🚨 No GEMINI_API_KEY found in .streamlit/secrets.toml or environment variables.")
     st.stop()
 
+# Strip any accidental whitespace from copy-pasting
+API_KEY = API_KEY.strip()
 client = genai.Client(api_key=API_KEY)
 FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"]
 
@@ -83,13 +85,18 @@ if "events_registered" not in st.session_state:
 # --- ADVANCED BOUNTY: ROLE-AWARE FILTERS ---
 with st.sidebar:
     st.header("🔐 Role Simulation")
-    current_role = st.selectbox("Current User Role", ["Admin", "Investigator", "Reviewer", "Hospital Authority"])
+    # 6 Explicit Roles from the Bounty
+    ALL_ROLES = ["User", "Admin", "Authority", "Hospital", "Investigator", "Reviewer"]
+    
+    current_role = st.selectbox("Current User Role", ALL_ROLES)
     st.divider()
 
     st.header("📥 Ingest Environment Report")
     source_type = st.selectbox("Data Source", ["Text Paste", "PDF Document", "YouTube Video", "Website URL"])
     title = st.text_input("Report Title")
-    report_role = st.selectbox("Visibility Scope", ["All", "Admin", "Investigator", "Reviewer", "Hospital Authority"])
+    
+    # FIX: Upgrade to multiselect so a report can belong to multiple departments
+    report_role = st.multiselect("Visibility Scope", ["All"] + ALL_ROLES, default=["All"])
     memory_date = st.date_input("Date", datetime.date.today())
     
     # --- CORE BOUNTY: ATTACHMENTS ---
@@ -106,8 +113,17 @@ with st.sidebar:
             try:
                 video_id = yt_url.split("/")[-1].split("?")[0] if "youtu.be" in yt_url else yt_url.split("v=")[-1].split("&")[0]
                 fetched = YouTubeTranscriptApi().fetch(video_id) if hasattr(YouTubeTranscriptApi(), 'fetch') else YouTubeTranscriptApi.get_transcript(video_id)
-                content_text = "\n".join([f"[{int(t['start'])//60:02d}:{int(t['start'])%60:02d}] {t['text']}" for t in fetched])
-            except Exception as e: st.error("Transcript failed.")
+                
+                formatted_transcript = []
+                for t in fetched:
+                    # Handle both dictionary and object returns
+                    text_val = t.get('text', '') if isinstance(t, dict) else getattr(t, 'text', str(t))
+                    start_val = t.get('start', 0) if isinstance(t, dict) else getattr(t, 'start', 0)
+                    formatted_transcript.append(f"[{int(start_val)//60:02d}:{int(start_val)%60:02d}] {text_val}")
+                
+                content_text = "\n".join(formatted_transcript)
+            except Exception as e: 
+                st.error("Transcript failed.")
 
     if st.button("Save Report to E.R.I.S.", use_container_width=True) and content_text and title:
         with st.spinner("Agent auditing report & extracting metadata..."):
@@ -120,7 +136,7 @@ with st.sidebar:
 
             # Elite Bounty Schema Extractor
             save_prompt = f"""Analyze this environmental report and extract metadata as JSON only:
-{{"summary": "2-3 sentence summary", "concepts": ["hazard", "compliance", etc], "status": "Critical/Moderate/Resolved", "recommendations": "Actionable steps", "notes": "Extra context"}}
+{{"summary": "2-3 sentence summary", "concepts": ["hazard", "compliance"], "status": "Critical/Moderate/Resolved", "recommendations": "Actionable steps", "notes": "Extra context"}}
 Content:\n{content_text[:10000]}"""
             try:
                 parsed = ac.safe_json_parse(safe_generate(save_prompt).text)
@@ -152,7 +168,16 @@ if st.session_state.pending_proposal:
             st.rerun()
 
 # --- ADVANCED BOUNTY: SCOPED RESULTS ---
-visible_memories = [m for m in st.session_state.memories if m.get("role_scope", "All") in ["All", current_role]]
+visible_memories = []
+for m in st.session_state.memories:
+    scope = m.get("role_scope", ["All"])
+    # Handle legacy records where scope was saved as a string
+    if isinstance(scope, str):
+        scope = [scope]
+    
+    if "All" in scope or current_role in scope:
+        visible_memories.append(m)
+
 st.info(f"🛡️ **Role Filter Active:** Showing {len(visible_memories)} of {len(st.session_state.memories)} total reports accessible to `{current_role}`.")
 
 # --- ROADMAP WORKFLOW ---
@@ -191,42 +216,46 @@ if st.session_state.last_roadmap:
 # --- ELITE & CORE BOUNTIES: REPORTS & EXPORTS ---
 st.subheader("📁 Environment Report Database")
 if visible_memories:
-    for d in visible_memories:
+    for i, d in enumerate(visible_memories):
         with st.expander(f"{'🔴' if 'Critical' in d.get('status','') else '🟢'} {d['title']} ({d['date']})"):
             st.markdown(f"**Status:** {d.get('status', 'N/A')} | **Scope:** {d.get('role_scope', 'All')}")
             st.write(f"**Summary:** {d['summary']}")
             st.write(f"**Recommendations:** {d.get('recommendations', 'None')}")
             
-            # CORE BOUNTY: Attachment Display
+            # CORE BOUNTY: Attachment Display (Bulletproofed)
             if d.get("attachment") and os.path.exists(d["attachment"]):
                 st.markdown("---")
                 st.markdown("**📎 Attached Evidence:**")
                 if d["attachment"].lower().endswith(('.png', '.jpg', '.jpeg')):
-                    st.image(d["attachment"], width=300)
+                    try:
+                        st.image(d["attachment"], width=300)
+                    except Exception:
+                        st.warning("⚠️ Attached image file is corrupted or empty (Dummy Data).")
                 else:
                     st.write(d["attachment"])
             
             # ELITE BOUNTY: Project-Specific Report Export
+            safe_title = re.sub(r'[^a-zA-Z0-9_\-]', '_', d['title'])
             html_report = f"""
-            <html><body>
-            <h2>Environmental Incident Report: {d['title']}</h2>
+            <html><body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2c3e50;">Environmental Incident Report: {d['title']}</h2>
             <p><b>Date:</b> {d['date']}</p>
             <p><b>Status:</b> {d.get('status', 'N/A')}</p>
             <hr>
-            <h3>Summary</h3><p>{d['summary']}</p>
-            <h3>Agent Recommendations</h3><p>{d.get('recommendations', 'N/A')}</p>
-            <h3>Field Notes</h3><p>{d.get('notes', 'N/A')}</p>
-            <h3>Tags</h3><p>{', '.join(d.get('concepts', []))}</p>
+            <h3 style="color: #34495e;">Summary</h3><p>{d['summary']}</p>
+            <h3 style="color: #34495e;">Agent Recommendations</h3><p>{d.get('recommendations', 'N/A')}</p>
+            <h3 style="color: #34495e;">Field Notes</h3><p>{d.get('notes', 'N/A')}</p>
+            <h3 style="color: #34495e;">Tags</h3><p>{', '.join(d.get('concepts', []))}</p>
             <hr>
-            <p><i>Generated autonomously by OmniBrain E.R.I.S.</i></p>
+            <p style="font-size: 0.8em; color: #7f8c8d;"><i>Generated autonomously by OmniBrain E.R.I.S.</i></p>
             </body></html>
             """
             st.download_button(
                 label="📄 Download Official Report (HTML)",
                 data=html_report,
-                file_name=f"ERIS_Report_{d['title'].replace(' ', '_')}.html",
+                file_name=f"ERIS_Report_{safe_title}.html",
                 mime="text/html",
-                key=d['title']
+                key=f"dl_{safe_title}_{i}"
             )
 else:
     st.caption("No reports accessible for your current role.")

@@ -17,11 +17,16 @@ def _call_llm(prompt: str) -> str:
     return _generate_fn(prompt).text
 
 def safe_json_parse(text: str) -> dict:
-    match = re.search(r'(\{.*?\})', text, re.DOTALL)
-    if match:
-        try: return json.loads(match.group(1))
-        except Exception: pass
-    return json.loads(text.strip().strip("```json").strip("```").strip())
+    text = text.strip().strip("```json").strip("```").strip()
+    start = text.find('{')
+    end = text.rfind('}') + 1
+    if start != -1 and end != 0:
+        try:
+            return json.loads(text[start:end])
+        except Exception:
+            pass
+    # Fallback if no brackets are found or parsing fails
+    return json.loads(text)
 
 class MemoryEvent: ADDED = "MEMORY_ADDED"
 _event_handlers = {}
@@ -37,19 +42,22 @@ def extract_keywords(text: str, top_n=6):
     return [w for w, _ in Counter(words).most_common(top_n)]
 
 def structured_retrieve(memories: list[dict], window_days: int = 7):
-    cutoff = datetime.date.today() - timedelta(days=window_days) if 'timedelta' in globals() else datetime.date.today() - datetime.timedelta(days=window_days)
+    cutoff = datetime.date.today() - datetime.timedelta(days=window_days)
     recent = [copy.deepcopy(m) for m in memories if datetime.date.fromisoformat(m.get("date", str(datetime.date.today()))) >= cutoff]
+    
     for m in recent:
         m["_concepts"] = [c.lower() for c in m.get("concepts", [])]
         m["_keywords"] = extract_keywords((m.get("summary", "") or "") + " " + (m.get("title", "") or ""))
+    
     all_concepts = Counter(c for m in recent for c in m["_concepts"])
     focus_concepts = [w for w, c in all_concepts.most_common(6) if c >= 1]
+    
     scored = []
     for m in recent:
         c_overlap = len(set(m["_concepts"]) & set(focus_concepts))
         k_overlap = len(set(m["_keywords"]) & set(focus_concepts))
         score = (3 * c_overlap) + (1 * k_overlap) + 1
-        scored.append({**m, "_score": score, "_reason": f"Semantic Match {score} (Concepts: {c_overlap})"})
+        scored.append({**m, "_score": score, "_reason": f"Semantic Match {score} (Concepts: {c_overlap}, KWs: {k_overlap})"})
     scored.sort(key=lambda x: -x["_score"])
     return scored, focus_concepts
 
