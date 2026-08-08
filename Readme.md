@@ -1,24 +1,27 @@
-# OmniBrain 🧠
-**Autonomous Agentic Memory | Local RAG & Zero-Dependency Disk Persistence**
+# OmniBrain E.R.I.S. 🌍
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://omnibrainweb.streamlit.app/)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Gemini API](https://img.shields.io/badge/Powered%20by-Google%20Gemini-orange)](https://deepmind.google/technologies/gemini/)
+**Environmental Report Intelligence System | Agentic Remediation & Governance**
 
-OmniBrain is a resilient, autonomous governance agent and universal second brain. It features zero-dependency local JSON disk persistence, multimodal ingestion (PDF, YouTube, Web), and intelligent RAG-based strategic planning. 
+OmniBrain E.R.I.S. (Environmental Report Intelligence System) is an autonomous multi-agent platform designed to log, audit, and remediate environmental hazards. Built with a robust 4-step Planner-Critic-Finalizer pipeline, it features granular role-based access control, multimodal evidence attachments, and project-specific report exports.
 
-🚀 **[Live Demo: Try OmniBrain Here](https://omnibrainweb.streamlit.app/)**
+🚀 **[Live Demo: Try OmniBrain E.R.I.S. Here](https://omnibrainweb.streamlit.app/)**
 
 ---
 
-## ✨ Key Features
+## ✨ Hackathon Bounties Implemented
 
-* **Multimodal Ingestion Pipeline:** Natively parses and indexes unstructured text, massive PDF documents (with in-memory caching for zero-lag processing), web pages, and YouTube video transcripts.
-* **Intelligent YouTube Parsing:** Automatically extracts `[MM:SS]` timestamps and embeds them as clickable direct-to-video links in the AI's responses.
-* **Resilient LLM Routing Engine:** Built-in dynamic fallback cycling between `gemini-3.5-flash`, `gemini-3.5-flash-lite`, and `gemini-3.6-flash` to guarantee 100% uptime during server traffic spikes.
-* **Strategic Planning Agents:** Dedicated agentic workflows to scan the decentralized brain for hidden deadlines, construct 7-day tactical roadmaps, and build 30-day overarching strategies.
-* **Human-in-the-Loop Governance:** Autonomous agents propose schedule locks and deadline tracking, which must pass through a strict UI approval gate before finalizing.
-* **Zero-Dependency Persistence:** Uses a lightweight, robust JSON disk-backing system, bypassing the need for heavy vector databases while maintaining full session continuity.
+* 📎 **Core Bounty — Evidence Attachments:** Seamlessly attach supporting files or images to any environmental report, with local disk persistence and safe inline preview displays.
+* 🛡️ **Advanced Bounty — Role-Aware Filtering:** Granular scoping across 6 distinct roles (`User`, `Admin`, `Authority`, `Hospital`, `Investigator`, `Reviewer`) with dynamic list results and visible counts.
+* 📄 **Elite Bounty — Project-Specific Exports:** Instant compilation and download of professional HTML incident reports bundling statuses, agent recommendations, field notes, and extracted tags.
+
+---
+
+## 🚀 Key Features
+
+* **Multimodal Ingestion Pipeline:** Natively parses unstructured text, massive PDF reports, YouTube field footage transcripts, and web sources.
+* **Autonomous Multi-Agent Loop (Planner → Critic → Finalizer):** Prevents hallucinations by forcing the LLM to cross-examine plans against source records and cite specific evidence sources.
+* **Perception & Governance Gates:** Autonomous monitoring agents scan incoming reports for urgent deadlines and trigger interactive approval gates.
+* **Resilient LLM Routing:** Built-in dynamic fallback cycling across Google Gemini endpoints to ensure 100% uptime.
 
 ---
 
@@ -27,33 +30,33 @@ OmniBrain is a resilient, autonomous governance agent and universal second brain
 * **Frontend:** Streamlit (Custom Dark Theme UI)
 * **LLM Engine:** Google Generative AI SDK (`google-genai`)
 * **Document Processing:** `pypdf`, `trafilatura`
-* **Video Processing:** `youtube-transcript-api` (with resilient URL/shortlink routing)
-* **Storage:** Local Disk JSON Persistence 
+* **Video Processing:** `youtube-transcript-api`
+* **Storage:** Zero-Dependency Local JSON Persistence & Local Attachment Directory
 
 ---
+
 ### 🔀 System Architecture Flow
 
 ```mermaid
 graph TD
-    %% Styling
     classDef input fill:#2b3137,stroke:#24292e,stroke-width:2px,color:#fff,rx:5px,ry:5px;
     classDef storage fill:#0366d6,stroke:#005cc5,stroke-width:2px,color:#fff,rx:5px,ry:5px;
     classDef engine fill:#28a745,stroke:#22863a,stroke-width:2px,color:#fff,rx:5px,ry:5px;
     classDef output fill:#6f42c1,stroke:#5a32a3,stroke-width:2px,color:#fff,rx:5px,ry:5px;
 
-    %% Nodes
-    A[📥 User Input<br/> PDF / Web / YouTube]:::input
-    B[(💾 Local JSON Brain<br/>Zero-Dependency Disk)]:::storage
-    C{🔍 Localized RAG<br/>Keyword & Timestamp Filter}:::engine
-    D[🧠 Gemini LLM<br/>Dynamic Fallback Routing]:::engine
-    E[🚀 Actionable Output<br/>Roadmaps & Governance]:::output
+    A[📥 Multimodal Report Input<br/>Text / PDF / YouTube / Image]:::input
+    B[(💾 Disk Persistence<br/>JSON Brain & Attachments)]:::storage
+    C{🔐 Role-Aware Scoping<br/>& Weighted Retrieval}:::engine
+    D[🧠 Planner → Critic → Finalizer<br/>Multi-Agent Audit Loop]:::engine
+    E[🚀 Actionable Remediation<br/>& HTML Report Exports]:::output
 
-    %% Flow
-    A -->|Ingest & Parse| B
-    B -->|Search Query| C
+    A -->|Ingest & Attach| B
+    B -->|Scoped Query| C
     C -->|Context Injection| D
-    D -->|Generation| E
+    D -->|Verified Generation| E
+
 ```
+
 ---
 
 ## 💻 Local Setup & Installation
@@ -61,7 +64,33 @@ graph TD
 To run this project locally, follow these steps:
 
 ### 1. Clone the repository
+
 ```bash
-git clone [https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git)
-cd YOUR_REPO_NAME
+git clone https://github.com/AJ-OmniMatrix/OmniBrain.git
+cd OmniBrain
+
+```
+
+### 2. Install dependencies
+
+```bash
+pip install -r requirements.txt
+
+```
+
+### 3. Configure API Key
+
+Create a `.streamlit/secrets.toml` file in your root directory:
+
+```toml
+GEMINI_API_KEY = "Your_Gemini_API_Key_Here"
+
+```
+
+### 4. Seed Demo Data & Run
+
+```bash
+python seed_demo.py
+streamlit run app.py
+
 ```
