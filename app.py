@@ -115,7 +115,7 @@ with st.sidebar:
         yt_url = st.text_input("YouTube Drone/Site Footage URL")
         if yt_url:
             try:
-                video_id = yt_url.split("/")[-1].split("?")[0] if "youtu.be" in yt_url else yt_url.split("v=")-1.split("&")[0]
+                video_id = yt_url.split("/")[-1].split("?")[0] if "youtu.be" in yt_url else yt_url.split("v=")[-1].split("&")[0]
                 fetched = YouTubeTranscriptApi().fetch(video_id) if hasattr(YouTubeTranscriptApi(), 'fetch') else YouTubeTranscriptApi.get_transcript(video_id)
                 
                 formatted_transcript = []
