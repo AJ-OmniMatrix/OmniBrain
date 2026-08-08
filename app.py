@@ -1,5 +1,5 @@
 """
-app.py -- OmniBrain E.R.I.S. (Environmental Report Intelligence System)
+app.py -- OmniBrain E.R.I.S. Command Center
 Integrates Core (Attachments), Advanced (Roles), and Elite (Export) Hackathon Bounties.
 """
 import streamlit as st
@@ -7,6 +7,7 @@ import os
 import datetime
 import json
 import re
+import time
 from google import genai
 from youtube_transcript_api import YouTubeTranscriptApi
 from pypdf import PdfReader
@@ -45,13 +46,14 @@ def parse_pdf_cached(uploaded_file):
 st.set_page_config(page_title="OmniBrain E.R.I.S.", page_icon="🌍", layout="wide")
 st.markdown("""
     <style>
-        .block-container { max-width: 1000px; padding-top: 2rem; }
+        .block-container { max-width: 1200px; padding-top: 2rem; }
         #MainMenu {visibility: hidden;} footer {visibility: hidden;}
+        .stMetric { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("OmniBrain E.R.I.S. 🌍")
-st.caption("Environmental Report Intelligence System | Agentic Remediation & Governance")
+st.caption("Environmental Report Intelligence System | Command & Control Center")
 
 # --- BULLETPROOF GEMINI AUTHENTICATION ---
 API_KEY = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
@@ -112,23 +114,23 @@ if "events_registered" not in st.session_state:
 
 # --- ADVANCED BOUNTY: ROLE-AWARE FILTERS ---
 with st.sidebar:
-    st.header("🔐 Role Simulation")
+    st.header("🔐 Security Clearance")
     # 6 Explicit Roles from the Bounty
     ALL_ROLES = ["User", "Admin", "Authority", "Hospital", "Investigator", "Reviewer"]
     
-    current_role = st.selectbox("Current User Role", ALL_ROLES)
+    current_role = st.selectbox("Current Role Override", ALL_ROLES)
     st.divider()
 
-    st.header("📥 Ingest Environment Report")
+    st.header("📥 Ingest Incident Report")
     source_type = st.selectbox("Data Source", ["Text Paste", "PDF Document", "YouTube Video", "Website URL"])
-    title = st.text_input("Report Title")
+    title = st.text_input("Incident Designation")
     
     # FIX: Upgrade to multiselect so a report can belong to multiple departments
     report_role = st.multiselect("Visibility Scope", ["All"] + ALL_ROLES, default=["All"])
-    memory_date = st.date_input("Date", datetime.date.today())
+    memory_date = st.date_input("Date Logged", datetime.date.today())
     
     # --- CORE BOUNTY: ATTACHMENTS ---
-    evidence_file = st.file_uploader("Attach Evidence (Image/Doc) [Optional]")
+    evidence_file = st.file_uploader("Attach Field Evidence (Image/Doc)")
     
     content_text = ""
     if source_type == "Text Paste": content_text = st.text_area("Paste report details...")
@@ -144,16 +146,15 @@ with st.sidebar:
                 
                 formatted_transcript = []
                 for t in fetched:
-                    # Handle both dictionary and object returns
                     text_val = t.get('text', '') if isinstance(t, dict) else getattr(t, 'text', str(t))
                     start_val = t.get('start', 0) if isinstance(t, dict) else getattr(t, 'start', 0)
                     formatted_transcript.append(f"[{int(start_val)//60:02d}:{int(start_val)%60:02d}] {text_val}")
                 
                 content_text = "\n".join(formatted_transcript)
             except Exception as e: 
-                st.error("Transcript failed.")
+                st.error("Transcript extraction failed.")
 
-    if st.button("Save Report to E.R.I.S.", use_container_width=True) and content_text and title:
+    if st.button("EXECUTE LOGGING PROTOCOL", use_container_width=True) and content_text and title:
         with st.spinner("Agent auditing report & extracting metadata..."):
             
             # Save Attachment Core Bounty
@@ -177,7 +178,7 @@ Content:\n{content_text[:10000]}"""
                 st.session_state.memories.append(new_memory)
                 save_persisted_memories(st.session_state.memories)
                 ac.emit(ac.MemoryEvent.ADDED, new_memory)
-                st.success(f"Report Logged: {title}")
+                st.success(f"Dossier Secured: {title}")
                 st.rerun()
             except Exception as e: st.warning(f"⚠️ {e}")
 
@@ -195,95 +196,142 @@ if st.session_state.pending_proposal:
             st.session_state.pending_proposal = None
             st.rerun()
 
-# --- ADVANCED BOUNTY: SCOPED RESULTS ---
+# --- FILTER VISIBLE MEMORIES ---
 visible_memories = []
 for m in st.session_state.memories:
     scope = m.get("role_scope", ["All"])
-    # Handle legacy records where scope was saved as a string
-    if isinstance(scope, str):
-        scope = [scope]
-    
+    if isinstance(scope, str): scope = [scope]
     if "All" in scope or current_role in scope:
         visible_memories.append(m)
 
-st.info(f"🛡️ **Role Filter Active:** Showing {len(visible_memories)} of {len(st.session_state.memories)} total reports accessible to `{current_role}`.")
+# --- CRISIS COMMAND CENTER METRICS RIBBON ---
+col1, col2, col3, col4 = st.columns(4)
+total_reps = len(st.session_state.memories)
+visible_count = len(visible_memories)
+critical_count = sum(1 for m in visible_memories if "Critical" in m.get("status", ""))
+
+col1.metric("🔒 Clearance Level", current_role)
+col2.metric("📁 Scoped Reports", visible_count, f"of {total_reps} total")
+col3.metric("🚨 Critical Hazards", critical_count, delta_color="inverse")
+col4.metric("🛡️ Agent Status", "Active / Resilient")
+
+st.divider()
 
 # --- ROADMAP WORKFLOW ---
-st.subheader("📅 Agentic Remediation Plan")
-if st.button("Generate Remediation Roadmap", use_container_width=True):
-    if not visible_memories: st.warning("No reports available for your role.")
+st.subheader("⚡ Autonomous Remediation Command Center")
+if st.button("🚀 Initialize Multi-Agent Audit & Roadmap", use_container_width=True):
+    if not visible_memories: 
+        st.warning("⚠️ Access Denied: No reports available for your security clearance.")
     else:
-        status = st.empty()
-        status.write("🔄 Auditing reports...")
+        # High-speed telemetry animation
+        prog = st.progress(0, text="Initializing Agent Mesh...")
+        time.sleep(0.2)
+        prog.progress(25, text="Executing Scoped Semantic Retrieval...")
+        time.sleep(0.2)
+        prog.progress(50, text="Synthesizing Planner Matrix...")
+        time.sleep(0.2)
+        prog.progress(75, text="Running Critic Hallucination Guardrails...")
+        time.sleep(0.2)
         try:
             st.session_state.last_roadmap = ac.generate_roadmap(visible_memories, window_days=7)
-            status.write("✅ Retrieve → ✅ Plan → ✅ Critique → ✅ Finalize")
-        except Exception as e: st.error(f"Planning failed: {e}")
+            prog.progress(100, text="✅ Autonomous Audit Complete.")
+            time.sleep(0.3)
+            prog.empty()
+        except Exception as e: 
+            prog.empty()
+            st.error(f"Planning failed: {e}")
 
 if st.session_state.last_roadmap:
     result = st.session_state.last_roadmap
-    with st.expander("🔍 Explainable Trace & Semantic Audit"):
-        for m in result.get("retrieval_trace", []): st.caption(f"**{m['title']}** — *{m['_reason']}*")
     
-    with st.expander("🧠 Plan → Critique Trace"):
-        st.json(result["plan"])
+    # Command Center Tabs for Clean UI
+    tab_roadmap, tab_trace, tab_critic = st.tabs(["🌍 Final Directive", "🔍 Explainable Trace", "🧠 Critic & Evidence Audit"])
+    
+    with tab_roadmap:
+        st.markdown("### Approved Emergency Remediation Protocol")
+        st.markdown(result["final"])
+        
+        if "evidence" in result["plan"]:
+            st.markdown("#### 🔗 Mandated Task-to-Evidence Links")
+            for task, sources in result["plan"]["evidence"].items():
+                st.info(f"**{task}**\n*Verified Source Report(s):* `{', '.join(sources)}`")
+
+    with tab_trace:
+        st.markdown("### Semantic Retrieval Telemetry")
+        for m in result.get("retrieval_trace", []):
+            st.markdown(f"> **{m['title']}**\n> *Telemetry Reason:* `{m['_reason']}`")
+    
+    with tab_critic:
+        st.markdown("### Critic Hallucination Defense Grid")
         conf = result["critic"]["confidence"]
-        st.markdown(f"**Confidence: {conf['level']}** — {conf['reason']}")
+        st.metric("Confidence Score", conf['level'])
+        st.write(f"**Audit Notes:** {conf['reason']}")
+        with st.expander("View Raw Planner JSON"):
+            st.json(result["plan"])
 
-    if "evidence" in result["plan"]:
-        st.markdown("### 📝 Mandated Tasks & Evidence Sources")
-        for task, sources in result["plan"]["evidence"].items():
-            st.info(f"**{task}**\n*Source Report:* {', '.join(sources)}")
+st.divider()
 
-    if result["critic"]["confidence"]["needs_approval"]:
-        st.error("🚨 Critic flagged hallucinations in the remediation plan. Human review required.")
-    
-    st.markdown("### Final Approved Roadmap")
-    st.markdown(result["final"])
-
-# --- ELITE & CORE BOUNTIES: REPORTS & EXPORTS ---
-st.subheader("📁 Environment Report Database")
+# --- ELITE & CORE BOUNTIES: COMMAND DATABASE ---
+st.subheader("📂 Verified Incident Database & Evidence Vault")
 if visible_memories:
     for i, d in enumerate(visible_memories):
-        with st.expander(f"{'🔴' if 'Critical' in d.get('status','') else '🟢'} {d['title']} ({d['date']})"):
-            st.markdown(f"**Status:** {d.get('status', 'N/A')} | **Scope:** {', '.join(d.get('role_scope', ['All']))}")
-            st.write(f"**Summary:** {d['summary']}")
-            st.write(f"**Recommendations:** {d.get('recommendations', 'None')}")
+        status_color = "🔴" if "Critical" in d.get('status','') else "🟢"
+        with st.expander(f"{status_color} [{d.get('status', 'N/A').upper()}] {d['title']} — (Logged: {d['date']})"):
             
+            mc1, mc2 = st.columns([2, 1])
+            with mc1:
+                st.markdown(f"**Security Scope:** `{', '.join(d.get('role_scope', ['All']))}`")
+                st.markdown(f"**Executive Summary:** {d['summary']}")
+                st.markdown(f"**Recommended Action:** {d.get('recommendations', 'None')}")
+            with mc2:
+                st.markdown(f"**Tags / Concepts:**")
+                st.code(", ".join(d.get('concepts', [])))
+
             # CORE BOUNTY: Attachment Display
             if d.get("attachment") and os.path.exists(d["attachment"]):
                 st.markdown("---")
-                st.markdown("**📎 Attached Evidence:**")
+                st.markdown("**📎 Attached Field Evidence:**")
                 if d["attachment"].lower().endswith(('.png', '.jpg', '.jpeg')):
                     try:
-                        st.image(d["attachment"], width=300)
+                        st.image(d["attachment"], width=350)
                     except Exception:
-                        st.warning("⚠️ Attached image file is corrupted or empty.")
+                        st.warning("⚠️ Attachment preview unavailable.")
                 else:
-                    st.write(d["attachment"])
+                    st.code(d["attachment"])
             
+            st.markdown("---")
             # ELITE BOUNTY: Project-Specific Report Export
             safe_title = re.sub(r'[^a-zA-Z0-9_\-]', '_', d['title'])
             html_report = f"""
-            <html><body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2c3e50;">Environmental Incident Report: {d['title']}</h2>
-            <p><b>Date:</b> {d['date']}</p>
-            <p><b>Status:</b> {d.get('status', 'N/A')}</p>
-            <hr>
-            <h3 style="color: #34495e;">Summary</h3><p>{d['summary']}</p>
-            <h3 style="color: #34495e;">Agent Recommendations</h3><p>{d.get('recommendations', 'N/A')}</p>
-            <h3 style="color: #34495e;">Field Notes</h3><p>{d.get('notes', 'N/A')}</p>
-            <h3 style="color: #34495e;">Tags</h3><p>{', '.join(d.get('concepts', []))}</p>
-            <hr>
-            <p style="font-size: 0.8em; color: #7f8c8d;"><i>Generated autonomously by OmniBrain E.R.I.S.</i></p>
+            <html><body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0e1117; color: #c9d1d9; padding: 40px; max-width: 800px; margin: auto;">
+            <div style="border-left: 4px solid {'#ff4b4b' if 'Critical' in d.get('status','') else '#00cc66'}; padding-left: 20px;">
+                <h1 style="color: #ffffff; margin-bottom: 5px;">E.R.I.S. Incident Report</h1>
+                <h3 style="color: #8b949e; margin-top: 0;">{d['title']}</h3>
+            </div>
+            <hr style="border: 1px solid #30363d; margin: 20px 0;">
+            <p><b>Date Logged:</b> {d['date']}</p>
+            <p><b>Severity Status:</b> <span style="color: {'#ff4b4b' if 'Critical' in d.get('status','') else '#00cc66'}; font-weight: bold;">{d.get('status', 'N/A')}</span></p>
+            <p><b>Security Scope:</b> {', '.join(d.get('role_scope', ['All']))}</p>
+            
+            <h3 style="color: #58a6ff;">Executive Summary</h3>
+            <p style="background: #161b22; padding: 15px; border-radius: 6px; border: 1px solid #30363d;">{d['summary']}</p>
+            
+            <h3 style="color: #58a6ff;">Mandated Remediation Protocol</h3>
+            <p style="background: #161b22; padding: 15px; border-radius: 6px; border: 1px solid #30363d;">{d.get('recommendations', 'N/A')}</p>
+            
+            <h3 style="color: #58a6ff;">Field Notes & Telemetry</h3>
+            <p style="background: #161b22; padding: 15px; border-radius: 6px; border: 1px solid #30363d;">{d.get('notes', 'N/A')}</p>
+            
+            <hr style="border: 1px solid #30363d; margin: 20px 0;">
+            <p style="font-size: 0.85em; color: #8b949e; text-align: center;"><i>Generated autonomously by OmniBrain E.R.I.S. (Environmental Report Intelligence System)</i></p>
             </body></html>
             """
             st.download_button(
-                label="📄 Download Official Report (HTML)",
+                label="📥 Export Certified Incident Dossier (HTML)",
                 data=html_report,
-                file_name=f"ERIS_Report_{safe_title}.html",
+                file_name=f"ERIS_Dossier_{safe_title}.html",
                 mime="text/html",
                 key=f"dl_{safe_title}_{i}"
             )
 else:
-    st.caption("No reports accessible for your current role.")
+    st.info("No incident reports accessible for your current security clearance role.")

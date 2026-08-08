@@ -67,5 +67,24 @@
         "notes": "Logged via offline autonomous fallback protocol.",
         "attachment": "attachments\\v-lori-dallas-parks-noise-4p_00.00.05.20.jpg",
         "raw": "An unauthorized commercial gathering took place inside the public park premises, involving the installation of a high-decibel public address system and outdoor amplifiers. Sound levels monitored at the boundary wall reached a peak of 78 dB, severely exceeding the statutory 45 dB nighttime limit mandated for residential/silence zones under the Noise Pollution Rules. Despite verbal requests from local residents, the operators refused to lower the volume or dismantle the sound stage after the 22:00 IST legal cutoff."
+    },
+    {
+        "title": "Test Case",
+        "type": "Text Paste",
+        "date": "2026-08-08",
+        "role_scope": [
+            "All"
+        ],
+        "summary": "Field assessment confirmed compliance failure and high ecological impact risk requiring immediate remediation.",
+        "concepts": [
+            "Compliance",
+            "Hazard",
+            "Mitigation"
+        ],
+        "status": "Critical",
+        "recommendations": "Dispatch response unit, seal perimeter, and file environmental impact statement.",
+        "notes": "Logged via offline autonomous fallback protocol.",
+        "attachment": "attachments\\v-lori-dallas-parks-noise-4p_00.00.05.20.jpg",
+        "raw": "An unauthorized commercial gathering took place inside the public park premises, involving the installation of a high-decibel public address system and outdoor amplifiers. Sound levels monitored at the boundary wall reached a peak of 78 dB, severely exceeding the statutory 45 dB nighttime limit mandated for residential/silence zones under the Noise Pollution Rules. Despite verbal requests from local residents, the operators refused to lower the volume or dismantle the sound stage after the 22:00 IST legal cutoff."
     }
 ]
